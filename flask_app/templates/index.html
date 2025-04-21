@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Face Recognition App</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f7f7f7; }
+    .taskbar {
+      display: flex;
+      background: #222;
+      color: #fff;
+      padding: 0;
+      margin: 0;
+      height: 60px;
+      align-items: center;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 0;
+      height: 50px;
+      line-height: 50px;
+      cursor: pointer;
+      font-size: 18px;
+      border: none;
+      background: none;
+      color: #fff;
+      outline: none;
+      transition: background 0.2s;
+      border-radius: 0;
+      box-sizing: border-box;
+    }
+    .tab.active {
+      background: #444;
+      font-weight: bold;
+    }
+    .tab:hover:not(.active) {
+      background: #333;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 40px;
+      width: 100%;
+    }
+    .tab-content {
+      display: none;
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      padding: 32px 24px 24px 24px;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .centered {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    video, img, canvas {
+      display: block;
+      margin: 0 auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      background: #222;
+      width: 640px;
+      height: 480px;
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .form-group {
+      margin: 18px 0 8px 0;
+      width: 100%;
+      text-align: center;
+    }
+    button, input[type="submit"] {
+      background: #222;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 24px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover, input[type="submit"]:hover {
+      background: #444;
+    }
+    input[type="text"], input[type="file"] {
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      width: 80%;
+      margin-top: 8px;
+      font-size: 16px;
+    }
+    .tab-title {
+      text-align: center;
+      margin-bottom: 18px;
+      font-size: 22px;
+      font-weight: bold;
+      color: #222;
+    }
+  </style>
+</head>
+<body>
+  <div class="taskbar">
+    <button class="tab active" id="addTabBtn">Add Face</button>
+    <button class="tab" id="imageRecognizeTabBtn">Image Recognize</button>
+    <button class="tab" id="liveRecognizeTabBtn">Live Recognize</button>
+  </div>
+  <div class="container">
+    <!-- Add Face Tab -->
+    <div class="tab-content active" id="addTab">
+      <div class="tab-title">Add Face to Database</div>
+      <div class="centered">
+        <div id="cameraArea">
+          <video id="video" width="640" height="480" autoplay></video>
+          <img id="preview" style="max-width:640px; display:none; margin-top:0;"/>
+        </div>
+        <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+        <div class="form-group">
+          <button id="captureBtn" type="button">Capture</button>
+          <button id="retakeBtn" type="button" style="display:none;">Retake</button>
+        </div>
+        <form id="addFaceForm" class="form-group">
+          <input type="text" name="name" id="nameInput" placeholder="Enter name" required><br>
+          <button type="submit">Add to DB</button>
+        </form>
+      </div>
+    </div>
+    <!-- Image Recognize Tab -->
+    <div class="tab-content" id="imageRecognizeTab">
+      <div class="tab-title">Recognize Face from Image</div>
+      <form id="recognizeForm" class="centered" action="/process" method="post" enctype="multipart/form-data" target="resultFrame">
+        <input type="file" name="image" id="recognizeImage" accept="image/*" required>
+        <input type="submit" value="Recognize">
+      </form>
+      <iframe name="resultFrame" style="width:100%; height:650px; border:1px solid #ccc; margin-top:18px; border-radius:8px;"></iframe>
+    </div>
+    <!-- Live Recognize Tab -->
+    <div class="tab-content" id="liveRecognizeTab">
+      <div class="tab-title">Live Recognize (Client Webcam)</div>
+      <video id="liveVideo" width="640" height="480" autoplay muted style="visibility:hidden; position:absolute; left:0; top:0;"></video>
+      <canvas id="liveCanvasInput" width="640" height="480" style="visibility:hidden; position:absolute; left:0; top:0;"></canvas>
+      <canvas id="liveCanvasOutput" width="640" height="480" style="margin-top:10px; border-radius:8px; display:block;"></canvas>
+      <div>
+        <!-- Remove start/stop buttons, handled automatically -->
+      </div>
+    </div>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul>
+          {% for message in messages %}
+            <li><strong>{{ message }}</strong></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+  </div>
+  <script>
+    // Tab switching logic
+    const addTabBtn = document.getElementById('addTabBtn');
+    const imageRecognizeTabBtn = document.getElementById('imageRecognizeTabBtn');
+    const liveRecognizeTabBtn = document.getElementById('liveRecognizeTabBtn');
+    const addTab = document.getElementById('addTab');
+    const imageRecognizeTab = document.getElementById('imageRecognizeTab');
+    const liveRecognizeTab = document.getElementById('liveRecognizeTab');
+
+    addTabBtn.onclick = function() {
+      stopCamera();
+      addTabBtn.classList.add('active');
+      imageRecognizeTabBtn.classList.remove('active');
+      liveRecognizeTabBtn.classList.remove('active');
+      addTab.classList.add('active');
+      imageRecognizeTab.classList.remove('active');
+      liveRecognizeTab.classList.remove('active');
+      stopLiveRecognize();
+      video.style.display = 'block';
+      preview.style.display = 'none';
+      captureBtn.style.display = 'inline-block';
+      retakeBtn.style.display = 'none';
+      setTimeout(() => {
+        if (addTab.classList.contains('active') && !stream) {
+          startCamera();
+        }
+      }, 500);
+    };
+    imageRecognizeTabBtn.onclick = function() {
+      stopCamera();
+      imageRecognizeTabBtn.classList.add('active');
+      addTabBtn.classList.remove('active');
+      liveRecognizeTabBtn.classList.remove('active');
+      imageRecognizeTab.classList.add('active');
+      addTab.classList.remove('active');
+      liveRecognizeTab.classList.remove('active');
+      preview.style.display = 'none';
+      video.style.display = 'none';
+      captureBtn.style.display = 'none';
+      retakeBtn.style.display = 'none';
+      stopLiveRecognize();
+    };
+    liveRecognizeTabBtn.onclick = function() {
+      stopCamera();
+      liveRecognizeTabBtn.classList.add('active');
+      addTabBtn.classList.remove('active');
+      imageRecognizeTabBtn.classList.remove('active');
+      liveRecognizeTab.classList.add('active');
+      addTab.classList.remove('active');
+      imageRecognizeTab.classList.remove('active');
+      preview.style.display = 'none';
+      video.style.display = 'none';
+      captureBtn.style.display = 'none';
+      retakeBtn.style.display = 'none';
+      // Start live recognize automatically
+      startLiveRecognize();
+    };
+
+    // Camera and capture logic
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const captureBtn = document.getElementById('captureBtn');
+    const retakeBtn = document.getElementById('retakeBtn');
+    const preview = document.getElementById('preview');
+    let capturedBlob = null;
+    let stream = null;
+
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach(track => {
+          try {
+            track.stop();
+          } catch (e) {}
+        });
+        stream = null;
+      }
+      video.pause();
+      video.srcObject = null;
+      video.removeAttribute('src');
+      video.load();
+      video.style.display = 'none';
+    }
+
+    async function startCamera() {
+      if (stream) return;
+      stopCamera();
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+          video.srcObject = stream;
+          video.style.display = 'block';
+          preview.style.display = 'none';
+          captureBtn.style.display = 'inline-block';
+          retakeBtn.style.display = 'none';
+          video.play();
+        } catch (err) {
+          if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+            alert('Camera is already in use by another application or browser tab. Please close other apps/tabs using the camera and try again.');
+          } else {
+            alert('Camera error: ' + err.name + ' - ' + err.message);
+          }
+        }
+      } else {
+        alert('getUserMedia not supported in this browser.');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      if (addTab.classList.contains('active')) {
+        if (!stream) startCamera();
+      }
+      video.style.display = 'block';
+      preview.style.display = 'none';
+      captureBtn.style.display = 'inline-block';
+      retakeBtn.style.display = 'none';
+    });
+
+    captureBtn.onclick = function() {
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(function(blob) {
+        capturedBlob = blob;
+        const url = URL.createObjectURL(blob);
+        preview.src = url;
+        preview.style.display = 'block';
+        video.style.display = 'none';
+        captureBtn.style.display = 'none';
+        retakeBtn.style.display = 'inline-block';
+      }, 'image/jpeg');
+    };
+
+    retakeBtn.onclick = function() {
+      capturedBlob = null;
+      preview.style.display = 'none';
+      video.style.display = 'block';
+      captureBtn.style.display = 'inline-block';
+      retakeBtn.style.display = 'none';
+    };
+
+    document.getElementById('addFaceForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const name = document.getElementById('nameInput').value;
+      if (!capturedBlob) {
+        alert('Please capture an image first.');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('file', capturedBlob, 'capture.jpg');
+      try {
+        const response = await fetch('http://localhost:8000/add_face', {
+          method: 'POST',
+          body: formData
+        });
+        let result;
+        try {
+          result = await response.json();
+        } catch {
+          alert('Server error or invalid response');
+          return;
+        }
+        alert(result.status ? `Added: ${result.name}` : (result.error || 'Error'));
+        if (result.status) {
+          capturedBlob = null;
+          preview.style.display = 'none';
+          video.style.display = 'block';
+          captureBtn.style.display = 'inline-block';
+          retakeBtn.style.display = 'none';
+        }
+      } catch (err) {
+        alert('Error: ' + err);
+      }
+    };
+
+    // --- Live Recognize (client webcam streaming to backend) ---
+    const liveVideo = document.getElementById('liveVideo');
+    const liveCanvasInput = document.getElementById('liveCanvasInput');
+    const liveCanvasOutput = document.getElementById('liveCanvasOutput');
+    let liveStream = null;
+    let liveRecognizeActive = false;
+
+    async function startLiveRecognize() {
+      if (liveRecognizeActive) return;
+      liveRecognizeActive = true;
+      try {
+        liveStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        liveVideo.srcObject = liveStream;
+        liveVideo.style.visibility = 'hidden';
+        liveVideo.style.position = 'absolute';
+        liveVideo.style.left = '0';
+        liveVideo.style.top = '0';
+        liveCanvasInput.style.visibility = 'hidden';
+        liveCanvasInput.style.position = 'absolute';
+        liveCanvasInput.style.left = '0';
+        liveCanvasInput.style.top = '0';
+        liveCanvasOutput.style.visibility = 'visible';
+        liveCanvasOutput.style.position = 'static';
+        liveCanvasOutput.style.display = 'block';
+        liveVideo.play();
+      } catch (err) {
+        alert('Cannot access webcam: ' + err.message);
+        liveRecognizeActive = false;
+        return;
+      }
+
+      async function streamLoop() {
+        if (!liveRecognizeActive) return;
+        liveCanvasInput.getContext('2d').drawImage(liveVideo, 0, 0, liveCanvasInput.width, liveCanvasInput.height);
+        liveCanvasInput.toBlob(async function(blob) {
+          if (!liveRecognizeActive) return;
+          try {
+            const response = await fetch('http://localhost:8000/process_frame', {
+              method: 'POST',
+              body: (() => {
+                const fd = new FormData();
+                fd.append('file', blob, 'frame.jpg');
+                return fd;
+              })()
+            });
+            if (response.ok) {
+              const imgBlob = await response.blob();
+              const ctx = liveCanvasOutput.getContext('2d');
+              const bitmap = await createImageBitmap(imgBlob);
+              ctx.clearRect(0, 0, liveCanvasOutput.width, liveCanvasOutput.height);
+              ctx.drawImage(bitmap, 0, 0, liveCanvasOutput.width, liveCanvasOutput.height);
+            }
+          } catch (e) {
+          }
+          if (liveRecognizeActive) {
+            streamLoop();
+          }
+        }, 'image/jpeg');
+      }
+      streamLoop();
+    }
+
+    function stopLiveRecognize() {
+      liveRecognizeActive = false;
+      if (liveStream) {
+        liveStream.getTracks().forEach(track => track.stop());
+        liveStream = null;
+      }
+      liveVideo.srcObject = null;
+      const ctx = liveCanvasOutput.getContext('2d');
+      ctx.clearRect(0, 0, liveCanvasOutput.width, liveCanvasOutput.height);
+    }
+  </script>
+</body>
+</html>

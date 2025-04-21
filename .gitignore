@@ -1,0 +1,21 @@
+
+# Data files
+face.index
+face_index.pkl
+
+# Test image
+test-image/
+*.jpg
+*.png
+
+# File Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+env/
+
+# System files
+.DS_Store
+Thumbs.db

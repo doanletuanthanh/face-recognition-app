@@ -1,0 +1,9 @@
+torch
+torchvision
+torchaudio 
+ultralytics
+onnxruntime
+insightface
+faiss-cpu
+fastapi[standard]
+uvicorn
