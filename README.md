@@ -1,7 +1,9 @@
 # Face Recognition App
 
 Thực hiện lại Homework môn học CS331-Thị giác máy tính nâng cao xây dựng app nhận diện khuôn mặt sử dụng Flask (frontend) và FastAPI (backend), hỗ trợ nhận diện từ ảnh, webcam, và thêm khuôn mặt mới vào database.
-
+<p align="center">
+  <img src="demo-gif.gif" alt="Face Recognition Demo" width="600"/>
+</p>
 ## Cấu trúc thư mục
 
 ```
@@ -24,7 +26,7 @@ model2onnx/
     convert_onnx.py
     ...
 models/
-    arcface_r100_v1.onnx
+    arcface_r18.onnx
     ...
 ```
 
@@ -64,7 +66,7 @@ python run_flask.py
 ## Demo sử dụng
 
 1. **Truy cập giao diện:**  
-   Mở trình duyệt và vào [http://localhost:5000](http://localhost:5000)
+   Mở trình duyệt và vào [http://127.0.0.1:5000](http://127.0.0.1:5000)
 
 2. **Các chức năng:**
    - **Add Face:**  
