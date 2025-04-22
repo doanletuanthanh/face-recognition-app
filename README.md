@@ -4,6 +4,7 @@ Thực hiện lại Homework môn học CS331-Thị giác máy tính nâng cao x
 <p align="center">
   <img src="demo-gif.gif" alt="Face Recognition Demo" width="600"/>
 </p>
+
 ## Cấu trúc thư mục
 
 ```
